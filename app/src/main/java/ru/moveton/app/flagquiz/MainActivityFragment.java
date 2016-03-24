@@ -1,16 +1,26 @@
 package ru.moveton.app.flagquiz;
 
+import io.codetail.animation.SupportAnimator;
+import io.codetail.animation.ViewAnimationUtils;
+import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.res.AssetManager;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Handler;
+import android.support.annotation.NonNull;
+import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+//import android.view.ViewAnimationUtils;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
@@ -26,6 +36,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+
+import io.codetail.animation.SupportAnimator;
+import io.codetail.widget.RevealLinearLayout;
 
 /**
  * A placeholder fragment containing a simple view.
@@ -50,6 +63,75 @@ public class MainActivityFragment extends Fragment {
     private int correctAnswers;
     private int totalGuesses;
     private String correctAnswer;
+    private View.OnClickListener guessButtonListener = new View.OnClickListener() {
+
+        @Override
+        public void onClick(View v) {
+            Button guessButton = ((Button) v);
+            String guess = guessButton.getText().toString();
+            String answer = getCountryName(correctAnswer);
+            ++totalGuesses;
+
+            if (guess.equals(answer)) {
+                ++correctAnswers;
+                answerTextView.setText(answer + "!");
+//                answerTextView.setTextColor(getResources().getColor(R.color.correct_answer, getContext().getTheme()));
+                answerTextView.setTextColor(ContextCompat.getColor(getContext(), R.color.correct_answer));
+                disableButtons();
+
+                if (correctAnswers == FLAGS_IN_QUIZ) {
+                    DialogFragment quizResults = new DialogFragment() {
+                        @NonNull
+                        @Override
+                        public Dialog onCreateDialog(Bundle bundle) {
+                            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+                            builder.setMessage(getString(R.string.results, totalGuesses, (1000 / (double) totalGuesses)));
+
+                            builder.setPositiveButton(R.string.reset_quiz,
+                                    new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(DialogInterface dialog, int id) {
+                                            resetQuiz();
+                                        }
+                                    }
+                            );
+                            return builder.create();
+                        }
+                    };
+
+                    quizResults.setCancelable(false);
+                    quizResults.show(getFragmentManager(), "quiz results");
+
+                } else {
+                    handler.postDelayed(
+                            new Runnable() {
+                                @Override
+                                public void run() {
+                                    animate(true);
+                                }
+                            }, 2000);
+
+                }
+            } else {
+                flagImageView.startAnimation(shakeAnimation);
+
+                answerTextView.setText(R.string.incorrect_answer);
+//                answerTextView.setTextColor(getResources().getColor(R.color.incorrect_answer, getContext().getTheme()));
+                answerTextView.setTextColor(ContextCompat.getColor(getContext(), R.color.incorrect_answer));
+
+                guessButton.setEnabled(false);
+            }
+        }
+    };
+
+    private void disableButtons() {
+        for (int row = 0; row < guessRows; row++) {
+            LinearLayout guessRow = guessLinearLayouts[row];
+            for (int i = 0; i < guessRow.getChildCount(); i++) {
+                guessRow.getChildAt(i).setEnabled(false);
+            }
+        }
+    }
 
 
     public MainActivityFragment() {
@@ -147,7 +229,6 @@ public class MainActivityFragment extends Fragment {
         loadNextFlag();
     }
 
-    @TargetApi(Build.VERSION_CODES.KITKAT)
     private void loadNextFlag() {
         String nextImage = quizCountriesList.remove(0);
         correctAnswer = nextImage;
@@ -158,7 +239,8 @@ public class MainActivityFragment extends Fragment {
         String region = nextImage.substring(0, nextImage.indexOf('-'));
         AssetManager assets = getActivity().getAssets();
 
-        try (InputStream stream = assets.open(region + "/" + nextImage + ".png")) {
+        try {
+            InputStream stream = assets.open(region + "/" + nextImage + ".png");
             Drawable flag = Drawable.createFromStream(stream, nextImage);
             flagImageView.setImageDrawable(flag);
 
@@ -171,9 +253,59 @@ public class MainActivityFragment extends Fragment {
 
         int correct = fileNameList.indexOf(correctAnswer);
         fileNameList.add(fileNameList.remove(correct));
+
+        for (int row = 0; row < guessRows; row++) {
+            for (int column = 0; column < guessLinearLayouts[row].getChildCount(); column++) {
+                Button newGuessButton = (Button) guessLinearLayouts[row].getChildAt(column);
+                newGuessButton.setEnabled(true);
+
+                String filename = fileNameList.get((row * 2) + column);
+                newGuessButton.setText(getCountryName(filename));
+            }
+        }
+
+        int row = random.nextInt(guessRows);
+        int column = random.nextInt(2);
+        LinearLayout randomRow = guessLinearLayouts[row];
+        String countryName = getCountryName(correctAnswer);
+        ((Button) randomRow.getChildAt(column)).setText(countryName);
     }
 
-    private void animate(boolean b) {
-
+    private String getCountryName(String filename) {
+        return filename.substring(filename.indexOf('-') + 1).replace('_', ' ');
     }
+
+
+    private void animate(boolean animateOut) {
+        if (correctAnswers == 0) {
+            return;
+        }
+
+        int centerX = (quizLinearLayout.getLeft() + quizLinearLayout.getRight()) / 2;
+        int centerY = (quizLinearLayout.getTop() + quizLinearLayout.getBottom()) / 2;
+
+        int radius = Math.max(quizLinearLayout.getWidth(), quizLinearLayout.getHeight());
+
+        SupportAnimator animator;
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            if (animateOut) {
+                animator = ViewAnimationUtils.createCircularReveal(quizLinearLayout, centerX, centerY, radius, 0);
+                animator.addListener(
+                        new SupportAnimator.SimpleAnimatorListener() {
+                            @Override
+                            public void onAnimationEnd() {
+                                loadNextFlag();
+                            }
+                        }
+                );
+            } else {
+                animator = ViewAnimationUtils.createCircularReveal(quizLinearLayout, centerX, centerY, 0, radius);
+            }
+
+            animator.setDuration(500);
+            animator.start();
+//        }
+    }
+
+
 }

@@ -1,7 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Flag Quiz</string>
+    <string name="app_name">Вспоминаем флаги</string>
     <string name="action_settings">Настройки</string>
     <string name="number_of_choices">Количество вариантов</string>
+    <string name="default_region_message">Не выбран ни один регион. Регион по-умолчанию - Северная Америка</string>
+    <string name="guess_the_country">Угадай страну</string>
+    <string name="image_desription">Изображение текущего флага в викторине</string>
+    <string name="incorrect_answer">Неверно!</string>
+    <string name="number_of_choises_description">Выводить 2, 4, 6 или 8 вариантов</string>
+    <string name="question">Вопрос %1$d из %2$d</string>
+    <string name="reset_quiz">Перезапуск викторины</string>
+    <string name="restarting_quiz">Викторина будет перезапущена с новыми установками</string>
+    <string name="results">%1$d ответов, корректных: %2$.02f%% </string>
+    <string name="title_activity_settings">Настройки</string>
+    <string name="world_regions">Регионы</string>
+    <string name="world_regions_description">Выбор регионов для викторины</string>
 
 </resources>
